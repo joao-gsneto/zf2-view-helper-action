@@ -1,45 +1,70 @@
-Zf2 Action View Helper
-======================
+<?php
 
-Use this View Helper to render a controller action inside your template.
+namespace Barato\View\Helper; //change to add your custom namespace
 
-Usage
-====
+use Zend\View\Helper\AbstractHelper,
+    Zend\ServiceManager\ServiceLocatorAwareInterface,
+    Zend\ServiceManager\ServiceLocatorInterface;
 
+/**
+ * Call a Controller action
+ * Don't forget to add on module config:
+ * 
+ *  'view_helpers' => array(
+ *       'invokables' => array(
+ *           'action' => 'Barato\View\Helper\Action',
+ *       ),
+ *   ),
+ * 
+ * @package Barato_View
+ * @subpackage Helper
+ * @copyright Copyright (c) 2014 - Joao Neto <eu@joaoneto.blog.br>
+ * @license http://framework.zend.com/license/new-bsd New BSD License
+ */
+class Action extends AbstractHelper implements ServiceLocatorAwareInterface {
 
-File:
+    /**
+     * @var ServiceLocatorInterface
+     */
+    protected $serviceLocator;
 
-** view/index/index.phtml **
-```
-<?php 
-$this->action( 'MySite\MyController', 'customaction', array( 'p' => 1 ) ); 
-?>
-```
-*On modules.config.php file*
+    /**
+     * Set the service locator.
+     *
+     * @param ServiceLocatorInterface $serviceLocator
+     * @return AbstractHelper
+     */
+    public function setServiceLocator(ServiceLocatorInterface $serviceLocator) {
+        $this->serviceLocator = $serviceLocator;
+        return $this;
+    }
 
-```
-return array( 
-   (...)
-   'view_helpers' => array(
-        'invokables' => array(
-            'action' => 'Barato\View\Helper\Action',
-        ),
- );
-```
+    /**
+     * Get the service locator.
+     *
+     * @return \Zend\ServiceManager\ServiceLocatorInterface
+     */
+    public function getServiceLocator() {
+        return $this->serviceLocator;
+    }
 
-Using Twig (I recommend =) )
+    public function __invoke($controllerName, $actionName, $params = array()) {
 
-```
-{{ action('Mysite\MyController', 'customaction', { p: 1 }) }}
-```
+        $controllerLoader = $this->serviceLocator->getServiceLocator()->get('ControllerLoader');
 
-Please note that namespace need to be changed to work on your App system names, like "YouBusiness\Library\Helpers".
+        //checks if ZfTwig exists, otherwise use default view renderer
+        //to add custom viewRenderer, change this
+        try {
+            $renderer = $this->serviceLocator->getServiceLocator()->get('ZfcTwig\View\TwigRenderer');
+        } catch (\Exception $ex) {
+            $renderer = $this->serviceLocator->getServiceLocator()->get('ViewRenderer');
+        }
+        $controller = $controllerLoader->get($controllerName);
 
-Enjoy!
+        $params['action'] = $actionName;
+        $viewModel = $controller->forward()->dispatch($controllerName, $params);
 
-Tags:
-* Zend Framework dispatch controller on view.
-* Zend 2 $this->action()
-* Zend Framework 2 Action Helper
+        return $renderer->render($viewModel);
+    }
 
-For Twig integration, use Zf-Commons/ZfcTwig module for Zf2.
+}
